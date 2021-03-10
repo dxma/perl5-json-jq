@@ -35,3 +35,5 @@ inc/
 /*.zip
 
 .vstags
+/lib/**/*.c
+/lib/**/*.o

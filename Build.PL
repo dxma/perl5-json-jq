@@ -13,6 +13,7 @@ my $build = Module::Build->new(
     },
     requires       => {
         'Alien::LibJQ'         => '>= 0.04',
+        'JSON'                 => '0',
     },
     needs_compiler => 1,
     include_dirs   => [ '.' ], # for ppport.h

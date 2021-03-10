@@ -1,12 +1,37 @@
 package JSON::JQ;
 use strict;
 use warnings;
+use Carp;
 
 our $VERSION = '0.01';
+
+use FindBin ();
+# required by XS code
+use JSON ();
 
 use XSLoader;
 XSLoader::load('JSON::JQ', $VERSION);
 
+sub new {
+    my ( $pkg, $param ) = @_;
+
+    croak "script parameter required" unless exists $param->{script};
+    my $self = {};
+    $self->{script} = $param->{script};
+    $self->{variable} = exists $param->{variable} ? $param->{variable} : {};
+    $self->{_attribute}->{JQ_ORIGIN} = $FindBin::Bin;
+    $self->{_attribute}->{JQ_LIBRARY_PATH} = exists $param->{library_paths} ? $param->{library_paths} : [ '~/.jq', '$ORIGIN/../lib/jq', '$ORIGIN/lib' ];
+    $self->{_errors} = [];
+    bless $self, $pkg;
+    unless ($self->_init()) {
+        croak "jq_compile_args() failed with errors:\n  ". join("\n  ", @{ $self->{_errors} });
+    }
+    return $self;
+}
+
+sub process {
+    my ( $self, $data ) = @_;
+}
 
 =head1 NAME
 
