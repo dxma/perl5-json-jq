@@ -1,6 +1,4 @@
 Revision history for Perl module JSON::JQ
 
-0.01 Thu Feb 25 00:19:28 2021
-    - original version; created by ExtUtils::ModuleMaker 0.63
-
-
+v0.01:
+   - initial release.

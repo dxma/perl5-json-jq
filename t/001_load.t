@@ -1,6 +1,9 @@
 # -*- perl -*-
 use Test::More tests => 6;
 
+use strict;
+use warnings;
+
 use blib;
 use FindBin;
 

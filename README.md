@@ -1,15 +1,28 @@
-pod2text JSON::JQ.pm > README
+# JSON::JQ - jq (https://stedolan.github.io/jq/) library binding
 
-If this is still here it means the programmer was too lazy to create the readme file.
+Check module's own pod documentation on how to use it.
 
-You can create it now by using the command shown above from this directory.
+## Installation
 
-At the very least you should be able to use this set of instructions
-to install the module...
+### Standard
 
-perl Build.PL
-./Build
-./Build test
-./Build install
+Install the module like usual.
 
-If you are on a windows box you should use 'nmake' rather than 'make'.
+   ```shell
+     cpan install JSON::JQ
+     # or
+     cpanm JSON::JQ
+   ```
+
+### Custom
+
+Down and unpack the module package and perform custom install.
+
+   ```shell
+     perl Build.PL
+     ./Build
+     ./Build test
+     ./Build install
+   ```
+
+Enjoy.

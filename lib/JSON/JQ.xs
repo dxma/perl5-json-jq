@@ -30,34 +30,38 @@ jv my_jv_input(pTHX_ void * arg) {
     }
     SV * const p_sv = arg;
     SvGETMAGIC(p_sv);
-    if(SvTYPE(p_sv) == SVt_NULL) {
-        // null
+    if (SvTYPE(p_sv) == SVt_NULL || (SvTYPE(p_sv) < SVt_PVAV && !SvOK(p_sv))) {
+        // undef or JSON::null()
         return jv_null();
     }
-    else if(SvROK(p_sv) && SvTYPE(SvRV(p_sv)) < SVt_PVAV) {
-        // boolean: \0 or \1, also works for $JSON::true, $JSON::false
-        // TODO: map with $JSON::true and $JSON::false directly
+    else if (SvROK(p_sv) && SvTYPE(SvRV(p_sv)) == SVt_IV) {
+        // boolean: \0 or \1, equilvalent of $JSON::PP::true, $JSON::PP::false
+        //fprintf(stderr, "got boolean value: %s\n", SvTRUE(SvRV(p_sv)) ? "True" : "False");
         return jv_bool((bool)SvTRUE(SvRV(p_sv)));
     }
-    else if(SvIOK(p_sv)) {
+    else if (SvROK(p_sv) && sv_derived_from(p_sv, "JSON::PP::Boolean")) {
+        // boolean: $JSON::PP::true and $JSON::PP::false
+        return jv_bool((bool)SvTRUE(SvRV(p_sv)));
+    }
+    else if (SvIOK(p_sv)) {
         // integer
         return jv_number((int)SvIV(p_sv));
     }
-    else if(SvUOK(p_sv)) {
+    else if (SvUOK(p_sv)) {
         // unsigned int
         return jv_number((unsigned int)SvUV(p_sv));
     }
-    else if(SvNOK(p_sv)) {
+    else if (SvNOK(p_sv)) {
         // double
         return jv_number((double)SvNV(p_sv));
     }
-    else if(SvPOK(p_sv)) {
+    else if (SvPOK(p_sv)) {
         // string
         STRLEN len;
         char * p_pv = SvPVutf8(p_sv, len);
         return jv_string_sized(p_pv, len);
     }
-    else if(SvROK(p_sv) && SvTYPE(SvRV(p_sv)) == SVt_PVAV) {
+    else if (SvROK(p_sv) && SvTYPE(SvRV(p_sv)) == SVt_PVAV) {
         // array
         jv jval = jv_array();
         AV * p_av = (AV *)SvRV(p_sv);
@@ -70,7 +74,7 @@ jv my_jv_input(pTHX_ void * arg) {
         }
         return jval;
     }
-    else if(SvROK(p_sv) && SvTYPE(SvRV(p_sv)) == SVt_PVHV) {
+    else if (SvROK(p_sv) && SvTYPE(SvRV(p_sv)) == SVt_PVHV) {
         // hash
         jv jval = jv_object();
         HV * p_hv = (HV *)SvRV(p_sv);
@@ -92,23 +96,28 @@ jv my_jv_input(pTHX_ void * arg) {
 
 void * my_jv_output(pTHX_ jv jval) {
     jv_kind kind = jv_get_kind(jval);
-    if(kind == JV_KIND_NULL) {
+    if (kind == JV_KIND_NULL) {
         // null
         return newSV(0);
     }
-    else if(kind == JV_KIND_FALSE) {
+    else if (kind == JV_KIND_FALSE) {
         // boolean: false
-        return get_sv("JSON::false", 0);
+        // NOTE: get_sv("JSON::PP::false") doesn't work
+        SV * sv_false = newSV(0);
+        //fprintf(stderr, "set boolean: False\n");
+        return sv_setref_iv(sv_false, "JSON::PP::Boolean", 0);
     }
-    else if(kind == JV_KIND_TRUE) {
+    else if (kind == JV_KIND_TRUE) {
         // boolean: true
-        return get_sv("JSON::true", 0);
+        SV * sv_true = newSV(0);
+        //fprintf(stderr, "set boolean: True\n");
+        return sv_setref_iv(sv_true, "JSON::PP::Boolean", 1);
     }
-    else if(kind == JV_KIND_NUMBER) {
+    else if (kind == JV_KIND_NUMBER) {
         // number
         double val = jv_number_value(jval);
         SV * p_sv = newSV(0);
-        if(jv_is_integer(jval)) {
+        if (jv_is_integer(jval)) {
             sv_setiv(p_sv, (int)val);
         }
         else {
@@ -116,11 +125,11 @@ void * my_jv_output(pTHX_ jv jval) {
         }
         return p_sv;
     }
-    else if(kind == JV_KIND_STRING) {
+    else if (kind == JV_KIND_STRING) {
         // string
         return newSVpvn_utf8(jv_string_value(jval), jv_string_length_bytes(jval), 1);
     }
-    else if(kind == JV_KIND_ARRAY) {
+    else if (kind == JV_KIND_ARRAY) {
         // array
         AV * p_av = newAV();
         SSize_t len = (SSize_t)jv_array_length(jv_copy(jval));
@@ -132,14 +141,14 @@ void * my_jv_output(pTHX_ jv jval) {
         }
         return newRV_noinc((SV *)p_av);
     }
-    else if(kind == JV_KIND_OBJECT) {
+    else if (kind == JV_KIND_OBJECT) {
         // hash
         HV * p_hv = newHV();
         int iter = jv_object_iter(jval);
-        while(jv_object_iter_valid(jval, iter)) {
+        while (jv_object_iter_valid(jval, iter)) {
             jv key = jv_object_iter_key(jval, iter);
             jv val = jv_object_iter_value(jval, iter);
-            if(jv_get_kind(key) != JV_KIND_STRING) {
+            if (jv_get_kind(key) != JV_KIND_STRING) {
                 croak("cannot take non-string type as hash key: JV_KIND == %i", jv_get_kind(key));
             }
             const char * k = jv_string_value(key);
@@ -171,7 +180,7 @@ static void my_debug_cb(void * data, jv input) {
 }
 
 inline void assert_isa(pTHX_ SV * self) {
-    if(!sv_isa(self, "JSON::JQ")) {
+    if (!sv_isa(self, "JSON::JQ")) {
         croak("self is not a JSON::JQ object");
     }
 }
