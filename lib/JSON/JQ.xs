@@ -15,8 +15,11 @@
 
 #include "ppport.h"
 
+#include <string.h>
+
 #include "jq.h"
 #include "jv.h"
+// TODO: get version from Alien::LibJQ cflags
 #define JQ_VERSION "1.6"
 
 // utility functions for type marshaling
@@ -127,7 +130,7 @@ void * my_jv_output(pTHX_ jv jval) {
             av_push(p_av, (SV *)my_jv_output(aTHX_ val));
             jv_free(val);
         }
-        return p_av;
+        return newRV_noinc((SV *)p_av);
     }
     else if(kind == JV_KIND_OBJECT) {
         // hash
@@ -147,7 +150,7 @@ void * my_jv_output(pTHX_ jv jval) {
             jv_free(val);
             iter = jv_object_iter_next(jval, iter);
         }
-        return p_hv;
+        return newRV_noinc((SV *)p_hv);
     }
     else {
         croak("un-supported jv object type: JV_KIND == %i", kind);
@@ -155,9 +158,16 @@ void * my_jv_output(pTHX_ jv jval) {
     // NOREACH
 }
 
-void my_error_cb(void * errors, jv jerr) {
+static void my_error_cb(void * errors, jv jerr) {
     dTHX;
     av_push((AV *)errors, newSVpvn_utf8(jv_string_value(jerr), jv_string_length_bytes(jerr), 1));
+}
+
+static void my_debug_cb(void * data, jv input) {
+    dTHX;
+    int dumpopts = *(int *)data;
+    jv_dumpf(JV_ARRAY(jv_string("DEBUG:"), input), stderr, dumpopts);
+    fprintf(stderr, "\n");
 }
 
 inline void assert_isa(pTHX_ SV * self) {
@@ -166,9 +176,33 @@ inline void assert_isa(pTHX_ SV * self) {
     }
 }
 
+// copied from main.c
+static const char *skip_shebang(const char *p) {
+    if (strncmp(p, "#!", sizeof("#!") - 1) != 0)
+        return p;
+    const char *n = strchr(p, '\n');
+    if (n == NULL || n[1] != '#')
+        return p;
+    n = strchr(n + 1, '\n');
+    if (n == NULL || n[1] == '#' || n[1] == '\0' || n[-1] != '\\' || n[-2] == '\\')
+        return p;
+    n = strchr(n + 1, '\n');
+    if (n == NULL)
+        return p;
+    return n+1;
+}
+
 MODULE = JSON::JQ              PACKAGE = JSON::JQ
 
 PROTOTYPES: DISABLE
+
+int
+JV_PRINT_INDENT_FLAGS(n)
+        int n
+    CODE:
+        RETVAL = JV_PRINT_INDENT_FLAGS(n);
+    OUTPUT:
+        RETVAL
 
 void
 _init(self)
@@ -178,8 +212,11 @@ _init(self)
         SV * sv_jq;
         HV * hv_attr;
         char * script;
+        AV * av_err;
+        int compiled = 0;
     CODE:
         assert_isa(aTHX_ ST(0));
+        // step 1. initialize
         _jq = jq_init();
         if (_jq == NULL) {
             croak("cannot malloc jq engine");
@@ -190,7 +227,12 @@ _init(self)
             SvREADONLY_on(sv_jq);
             hv_stores(self, "_jq", sv_jq);
         }
-        jq_set_error_cb(_jq, my_error_cb, SvRV(*hv_fetchs(self, "_errors", 0)));
+        // step 2. set error and debug callbacks
+        av_err = (AV *)SvRV(*hv_fetchs(self, "_errors", 0));
+        jq_set_error_cb(_jq, my_error_cb, av_err);
+        int dumpopts = (int)SvIV(*hv_fetchs(self, "_dumpopts", 0));
+        jq_set_debug_cb(_jq, my_debug_cb, &dumpopts);
+        // step 3. set initial attributes
         hv_attr = (HV *)SvRV(*hv_fetchs(self, "_attribute", 0));
         I32 len = hv_iterinit(hv_attr);
         for (I32 i = 0; i < len; i++) {
@@ -199,14 +241,119 @@ _init(self)
             SV * val = hv_iternextsv(hv_attr, &key, &klen);
             jq_set_attr(_jq, jv_string_sized(key, klen), my_jv_input(aTHX_ val));
         }
+        // set JQ_VERSION
         jq_set_attr(_jq, jv_string("VERSION_DIR"), jv_string(JQ_VERSION));
-        script = SvPV_nolen(*hv_fetchs(self, "script", 0));
-        if (!jq_compile_args(_jq, script, my_jv_input(aTHX_ *hv_fetchs(self, "variable", 0)))) {
-            XSRETURN_NO;
+        // step 4. compile
+        jv args = my_jv_input(aTHX_ *hv_fetchs(self, "variable", 0));
+        if (hv_exists(self, "script_file", 11)) {
+            jv data = jv_load_file(SvPV_nolen(*hv_fetchs(self, "script_file", 0)), 1);
+            if (!jv_is_valid(data)) {
+                data = jv_invalid_get_msg(data);
+                my_error_cb(av_err, data);
+                jv_free(data);
+                XSRETURN_NO;
+            }
+            compiled = jq_compile_args(_jq, skip_shebang(jv_string_value(data)), args);
+            jv_free(data);
         }
         else {
+            script = SvPV_nolen(*hv_fetchs(self, "script", 0));
+            compiled = jq_compile_args(_jq, script, args);
+
+        }
+        if (compiled) {
+            if (SvTRUE(get_sv("JSON::JQ::DUMP_DISASM", 0))) {
+                jq_dump_disassembly(_jq, 0);
+                printf("\n");
+            }
             XSRETURN_YES;
         }
+        else {
+            jv_free(args);
+            // jq_teardown(&_jq); // no need to call destructor here, DESTROY will do
+            XSRETURN_NO;
+        }
+
+int
+_process(self, sv_input, av_output)
+        HV * self
+        SV * sv_input
+        AV * av_output
+    INIT:
+        jq_state * _jq = NULL;
+        SV * sv_jq;
+        AV * av_err;
+    CODE:
+        assert_isa(aTHX_ ST(0));
+        sv_jq = *hv_fetchs(self, "_jq", 0);
+        _jq = INT2PTR(jq_state *, SvIV(sv_jq));
+        jv jv_input = my_jv_input(aTHX_ sv_input);
+        int jq_flags = (int)SvIV(*hv_fetchs(self, "jq_flags", 0));
+        // logic from static int process(jq state *jq jv value, int flags, int dumpopts) in main.c
+        jq_start(_jq, jv_input, jq_flags);
+        jv result;
+        // clear previous call errors
+        av_err = (AV *)SvRV(*hv_fetchs(self, "_errors", 0));
+        av_clear(av_err);
+        int ret = 14;
+        while (jv_is_valid(result = jq_next(_jq))) {
+            av_push(av_output, (SV *)my_jv_output(aTHX_ result));
+            if (jv_get_kind(result) == JV_KIND_FALSE || jv_get_kind(result) == JV_KIND_NULL) {
+                ret = 11;
+            }
+            else {
+                ret = 0;
+            }
+            jv_free(result);
+        }
+        if (jq_halted(_jq)) {
+            // jq program invoked `halt` or `halt_error`
+            jv exit_code = jq_get_exit_code(_jq);
+            if (!jv_get_kind(exit_code)) {
+                ret = 0;
+            }
+            else if (jv_get_kind(exit_code) == JV_KIND_NUMBER) {
+                ret = jv_number_value(exit_code);
+            }
+            else {
+                ret = 5;
+            }
+            jv_free(exit_code);
+            jv error_message = jq_get_error_message(_jq);
+            if (jv_get_kind(error_message) == JV_KIND_STRING) {
+                my_error_cb(av_err, error_message);
+            }
+            else if (jv_get_kind(error_message) == JV_KIND_NULL) {
+                // halt with no output
+            }
+            else if (jv_is_valid(error_message)) {
+                error_message = jv_dump_string(jv_copy(error_message), 0);
+                my_error_cb(av_err, error_message);
+            }
+            else {
+                // no message; use --debug-trace to see a message
+            }
+            jv_free(error_message);
+        }
+        else if (jv_invalid_has_msg(jv_copy(result))) {
+            // uncaught jq exception
+            jv msg = jv_invalid_get_msg(jv_copy(result));
+            jv input_pos = jq_util_input_get_position(_jq);
+            if (jv_get_kind(msg) == JV_KIND_STRING) {
+                av_push(av_err, newSVpvf("jq: error (at %s): %s", jv_string_value(input_pos), jv_string_value(msg)));
+            }
+            else {
+                msg = jv_dump_string(msg, 0);
+                av_push(av_err, newSVpvf("jq: error (at %s) (not a string): %s", jv_string_value(input_pos), jv_string_value(msg)));
+            }
+            ret = 5;
+            jv_free(input_pos);
+            jv_free(msg);
+        }
+        jv_free(result);
+        RETVAL = ret;
+    OUTPUT:
+        RETVAL
 
 void
 DESTROY(self)
@@ -219,6 +366,8 @@ DESTROY(self)
         sv_jq = *hv_fetchs(self, "_jq", 0);
         _jq = INT2PTR(jq_state *, SvIV(sv_jq));
         if (_jq != NULL) {
-            //printf("destroying jq object\n");
+            if (SvTRUE(get_sv("JSON::JQ::DEBUG", 0))) {
+                fprintf(stderr, "destroying jq object: %i\n", _jq);
+            }
             jq_teardown(&_jq);
         }

@@ -5,7 +5,7 @@ use blib;
 use FindBin;
 
 BEGIN { use_ok( 'JSON::JQ' ); }
-can_ok('JSON::JQ', qw/new _init/);
+can_ok('JSON::JQ', qw/JV_PRINT_INDENT_FLAGS new _init _process DESTROY/);
 
 my $jq1 = JSON::JQ->new({ script => '.' });
 isa_ok($jq1, 'JSON::JQ');
