@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 # internal flags
 our $DEBUG       = 0;
 our $DUMP_DISASM = 0;
@@ -33,7 +33,7 @@ sub new {
     # script initial arguments
     $self->{variable} = exists $param->{variable} ? $param->{variable} : {};
     # internal attributes
-    $self->{_attribute}->{JQ_ORIGIN} = path($FindBin::Bin)->realpath if $FindBin::Bin;
+    $self->{_attribute}->{JQ_ORIGIN} = path($FindBin::Bin)->realpath->stringify if $FindBin::Bin;
     $self->{_attribute}->{JQ_LIBRARY_PATH} = exists $param->{library_paths} ? $param->{library_paths} :
         [ '~/.jq', '$ORIGIN/../lib/jq', '$ORIGIN/lib' ];
     $self->{_attribute}->{PROGRAM_ORIGIN} = exists $param->{script_file} ? path($param->{script_file})->parent->stringify : '.';
