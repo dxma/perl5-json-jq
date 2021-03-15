@@ -103,8 +103,8 @@ JSON::JQ - jq (https://stedolan.github.io/jq/) library binding
 
 =head1 DESCRIPTION
 
-This is L<jq|https://stedolan.github.io/jq/> library binding, making it possible to process
-data using jq script/filter/module. Check jq homepage for detail explanation and documentation.
+This is a L<jq|https://stedolan.github.io/jq/> library binding, making it possible to process
+data using jq script/filter/module. Check the jq homepage for a detailed explanation and documentation.
 
 
 =head1 METHODS
@@ -122,14 +122,14 @@ A string of jq script. The simplest one is '.', which does data 'echo'.
 
 =item * script_file
 
-A path to the file which contains jq script. Shell-bang on first line will be ignored safely.
+A path to the file which contains the jq script. Shell-bang on first line will be ignored safely.
 
 =item * variable
 
-A hash reference with pre-defined variables and their values, they can be used by jq script
-later. Complex data structure like nested array and/or hash is acceptable.
+A hash reference with pre-defined variables and their values, they can be used by the jq script
+later. Complex data structures like nested arrays and/or hashes are acceptable.
 
-Check jq official documentation on how to reference variables inside script.
+Check the jq official documentation on how to reference variables inside script.
 
 =item * library_paths
 
@@ -139,35 +139,35 @@ library/module when needed.
 The default search paths are I<'~/.jq'> I<'$ORIGIN/../lib/jq'> I<'$ORIGIN/lib'>, which
 confirm with jq executable.
 
-Check jq officiall documentation on how to use this functionality in script.
+Check the jq official documentation on how to use this functionality in script.
 
 =back
 
 =head2 process({ parameter => value, ... })
 
 Process given input and return results as array reference. The input data must be provided
-via one of the prameters below.
+via one of the parameters below.
 
 =over 4
 
 =item * data
 
-A perl variable representing JSON formed data. The straight way to understand its equivalent
+A Perl variable representing JSON formed data. The straight way to understand its equivalent
 is the return of C<JSON::from_json> call.
 
-Any other type of data which jq engine will accept can do. Such as I<undef>, which says Null
-input. It is useful when the output data is created sorely by script itself.
+Any other type of data which the jq engine will accept can do. Such as I<undef>, which says Null
+input. It is useful when the output data is created solely by a script itself.
 
-Bear in mind that jq engine cannot understand (blessed) perl objects, with one exception - object
+Bear in mind that the jq engine cannot understand (blessed) perl objects, with one exception - objects
 returned via C<JSON::true()> or C<JSON::false()>. They will be handled by underlying XS code
-properly before passing them to jq engine.
+properly before passing them to the jq engine.
 
 Check I<SPECIAL DATA MAPPING> section below.
 
 =item * json
 
 A json encoded string. It will be decoded using C<JSON::from_json> before handling to jq engine.
-Which also means, it must fully conform with JSON speculation.
+Which also means, it must fully conform with the JSON specification.
 
 =item * json_file
 
