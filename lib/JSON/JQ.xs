@@ -313,7 +313,7 @@ _process(self, sv_input, av_output)
             else {
                 ret = 0;
             }
-            jv_free(result);
+            //jv_free(result);
         }
         if (jq_halted(_jq)) {
             // jq program invoked `halt` or `halt_error`
@@ -376,7 +376,7 @@ DESTROY(self)
         _jq = INT2PTR(jq_state *, SvIV(sv_jq));
         if (_jq != NULL) {
             if (SvTRUE(get_sv("JSON::JQ::DEBUG", 0))) {
-                fprintf(stderr, "destroying jq object: %i\n", _jq);
+                fprintf(stderr, "destroying jq object: %p\n", _jq);
             }
             jq_teardown(&_jq);
         }
