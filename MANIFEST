@@ -8,3 +8,5 @@ LICENSE
 MANIFEST
 ppport.h
 README.md
+META.yml
+META.json
