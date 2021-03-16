@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 # internal flags
 our $DEBUG       = 0;
 our $DUMP_DISASM = 0;
