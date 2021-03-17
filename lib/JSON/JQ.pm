@@ -226,7 +226,7 @@ B<Internal use only>. When on, print out debug messages from XS code.
 
 =head1 BUGS
 
-Please report bugs to https://github.com/dxma/perl5-json-jq/issues
+Please report bugs to L<https://github.com/dxma/perl5-json-jq/issues>.
 
 =head1 AUTHOR
 
@@ -247,7 +247,11 @@ LICENSE file included with this module.
 
 =head1 SEE ALSO
 
-   * L<jq official wiki|https://github.com/stedolan/jq/wiki>
+=over
+
+=item L<jq official wiki|https://github.com/stedolan/jq/wiki>
+
+=back
 
 =cut
 
