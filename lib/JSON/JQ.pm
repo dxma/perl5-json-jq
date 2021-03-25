@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 # internal flags
 our $DEBUG       = 0;
 our $DUMP_DISASM = 0;
@@ -65,7 +65,7 @@ sub process {
     }
     elsif (exists $param->{json_file}) {
         my $file = path($param->{json_file});
-        $input = from_json($file->slurp_utf8, { utf8 => 1 });
+        $input = from_json($file->slurp, { utf8 => 1 });
     }
     else {
         croak "JSON::JQ::process(): required parameter not found, check method documentation";
