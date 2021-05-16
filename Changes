@@ -1,5 +1,8 @@
 Revision history for Perl module JSON::JQ
 
+v0.06:
+   - fix linking problem on alphine Linux (credit to Bob Bell)
+   - more testcases
 v0.05:
    - not croak if no output available but no error raised
    - bugfixes in XS code
