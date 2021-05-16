@@ -13,5 +13,6 @@ v0.03:
 v0.02:
    - fix access of freed memory, which leads to segfault on Linux.
    - add missing module dependency - enum.
+   - module documentation typo fixes (credit to Ben Bullock)
 v0.01:
    - initial release.
