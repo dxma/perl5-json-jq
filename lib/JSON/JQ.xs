@@ -45,11 +45,11 @@ jv my_jv_input(pTHX_ void * arg) {
     }
     else if (SvIOK(p_sv)) {
         // integer
-        return jv_number((int)SvIV(p_sv));
+        return jv_number((long)SvIV(p_sv));
     }
     else if (SvUOK(p_sv)) {
         // unsigned int
-        return jv_number((unsigned int)SvUV(p_sv));
+        return jv_number((unsigned long)SvUV(p_sv));
     }
     else if (SvNOK(p_sv)) {
         // double
@@ -121,7 +121,7 @@ void * my_jv_output(pTHX_ jv jval) {
         double val = jv_number_value(jval);
         SV * p_sv = newSV(0);
         if (jv_is_integer(jval)) {
-            sv_setiv(p_sv, (int)val);
+            sv_setiv(p_sv, (long)val);
         }
         else {
             sv_setnv(p_sv, val);
