@@ -8,8 +8,8 @@ our $VERSION = '0.09';
 our $DEBUG       = 0;
 our $DUMP_DISASM = 0;
 
-use FindBin ();
-FindBin::again();
+BEGIN { eval "use FindBin ()" }
+eval "FindBin::again()";
 use POSIX qw/isatty/;
 use Path::Tiny qw/path/;
 use JSON qw/from_json/;
